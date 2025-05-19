@@ -22,9 +22,9 @@ decision = {
     "yellowBubble": False,
 }
 
-image_path = os.path.join(script_dir, 'test4.png')
+image_path = os.path.join(script_dir, 'test.png')
 
-results = model([image_path], conf=.70, save=True)  # return a list of Results objects
+results = model([image_path], conf=.80, save=True)  # return a list of Results objects
 # boxes = results[0].boxes.xyxy.tolist()
 # classes = results[0].boxes.cls.tolist()
 # names = results[0].names
