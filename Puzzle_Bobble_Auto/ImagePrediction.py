@@ -1,79 +1,31 @@
 import os
+import torch
 from ultralytics import YOLO
 
+target_box = torch.tensor([924.0000, 860.0000, 994.000, 942.000])
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
-model_path = os.path.join(script_dir, 'best.pt')
+model_path = os.path.join(script_dir, "best.pt")
 
 # Load a model
 model = YOLO(model_path)  # pretrained YOLOv8n model
 
-# Run batched inference on a list of images
-screenx_center = 1920/2
-screeny_center = 1080/2
+image_path = os.path.join(script_dir, "test4.png")
 
-decision = {
-    "blueBubble": False,
-    "grayBubble": False,
-    "greenBuble": False,
-    "purpleBubble": False,
-    "orangeBubble": False,
-    "redBubble": False,
-    "whiteBubble": False,
-    "yellowBubble": False,
-}
+results = model([image_path], conf=0.80, save=True)  # return a list of Results objects
 
-image_path = os.path.join(script_dir, 'test.png')
+class_names = model.names
 
-results = model([image_path], conf=.80, save=True)  # return a list of Results objects
-# boxes = results[0].boxes.xyxy.tolist()
-# classes = results[0].boxes.cls.tolist()
-# names = results[0].names
-# confidences = results[0].boxes.conf.tolist()
+def point_in_box(cx, cy, box):
+    x1, y1, x2, y2 = box
+    return x1 <= cx <= x2 and y1 <= cy <= y2
 
-# # Process results list
-# for box, cls, conf in zip(boxes, classes, confidences):
-#     x1, y1, x2, y2 = box
+boxes = results[0].boxes
+for i in range(len(boxes)):
+    box = boxes.xyxy[i]  # (x1, y1, x2, y2)
+    cx = (box[0] + box[2]) / 2
+    cy = (box[1] + box[3]) / 2
+    class_id = int(boxes.cls[i].item())
     
-#     center_x = (x1+x2) / 2
-#     center_y = (y1+y2) / 2
-
-#     confidence = conf
-#     detected_class = cls
-#     name = names[int(cls)]
-    
-#     if name=="buy":
-#         decision["buy"] = True
-#         decision["buy_location"] = (center_x, center_y)
-#     elif name == "continue":
-#         decision["continue"] = True
-#         decision["continue_location"] = (center_x, center_y)
-#     elif name == "play":
-#         decision["play"] = True
-#         decision["play_location"] = (center_x, center_y)
-#     elif name == "next":
-#         decision["next"] = True
-#         decision["next_location"] = (center_x, center_y)
-#     elif name == "tree":
-#         decision["tree"] = True
-#         distance = ((center_x - screenx_center) ** 2 + (center_y - screeny_center) **2) **.5
-#         if "tree_location" in decision:
-#             # Calculate if closer
-#             if distance < decision["tree_distance"]:
-#                 decision["tree_location"] = (center_x, center_y)
-#                 decision["tree_distance"] = distance
-#         else:
-#             decision["tree_location"] = (center_x, center_y)
-#             decision["tree_distance"] = distance
-#     elif name == "building":
-#         decision["building"] = True
-#         distance = ((center_x - screenx_center) ** 2 + (center_y - screeny_center) **2) **.5
-#         if "building_location" in decision:
-#             # Calculate if closer
-#             if distance < decision["building_distance"]:
-#                 decision["building_location"] = (center_x, center_y)
-#                 decision["building_distance"] = distance
-#         else:
-#             decision["building_location"] = (center_x, center_y)
-#             decision["building_distance"] = distance
-    
-# print(decision)
+    if point_in_box(cx.item(), cy.item(), target_box):
+        print(f"{class_names[class_id]} is in the target location at center ({cx.item():.1f}, {cy.item():.1f})")
