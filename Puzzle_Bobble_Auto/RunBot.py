@@ -10,6 +10,7 @@ import math
 from PIL import Image
 from ultralytics import YOLO
 
+
 def extract_pointer_angle(cv_image, pointer_box):
     x1, y1, x2, y2 = pointer_box
     pointer_crop = cv_image[y1:y2, x1:x2]
@@ -39,41 +40,48 @@ def extract_pointer_angle(cv_image, pointer_box):
 
     return get_angle(base, tip)
 
+
 def calculate_target_angle(pointer_base, target_x):
     dx = target_x - pointer_base[0]
     dy = -100  # assume some constant upward direction
     return math.degrees(math.atan2(dy, dx))
 
-def take_screenshot(stop_event,model):
+
+#function responsible for taking screenshots periodically
+def take_screenshot(stop_event, model):
     screenx_center = 1920 / 2
     screeny_center = 1080 / 2
     if not os.path.exists("screenshots"):
         os.makedirs("screenshots")
 
     while not stop_event.is_set():
-        #detect what bubble will be shot
+        # the default location of the shooter bubble, the one below the pointer
         target_box = torch.tensor([924.0000, 860.0000, 994.000, 942.000])
+
         def point_in_box(cx, cy, box):
             x1, y1, x2, y2 = box
             return x1 <= cx <= x2 and y1 <= cy <= y2
-        
+
+        #take screenshot and ensures its RGB
         screenshot = pyautogui.screenshot()
-        screenshot = Image.frombytes('RGB', screenshot.size, screenshot.tobytes())
+        screenshot = Image.frombytes("RGB", screenshot.size, screenshot.tobytes())
         print("screenshot took")
 
-        results = model([screenshot], conf=.50)
+        #results based on the screenshot with confidence of 70 percent
+        results = model([screenshot], conf=0.70)
 
         shooter_class = None
         pointer_y_threshold = 900
-        min_dist = float('inf')
+        min_dist = float("inf")
         target_coords = None
-        
+
         boxes = results[0].boxes
-        
+
         pointer_box = None
-        
+
+        #go through the labels found, identifying the pointer, the target bubble
         for i in range(len(boxes)):
-            box = boxes.xyxy[i]  
+            box = boxes.xyxy[i]
             cx = (box[0] + box[2]) / 2
             cy = (box[1] + box[3]) / 2
             class_id = int(boxes.cls[i].item())
@@ -82,22 +90,22 @@ def take_screenshot(stop_event,model):
             if shooter_class is None and point_in_box(cx.item(), cy.item(), target_box):
                 shooter_class = class_name
                 print(f"Shooter bubble: {shooter_class}")
-                continue  
-            
+                continue
+
             if pointer_box is None and class_name == "pointer":
                 pointer_box = box.cpu().numpy().astype(int)
                 continue
-            
+
             if cy.item() > pointer_y_threshold:
                 continue
             if shooter_class is not None and class_name != shooter_class:
                 continue
-            
+
             dist = abs(cx.item() - screenx_center)
             if dist < min_dist:
                 min_dist = dist
                 target_coords = cx.item()
-                
+
         cv_image = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
 
         if pointer_box is not None:
@@ -117,7 +125,9 @@ def take_screenshot(stop_event,model):
                 # Estimate base x position (center of pointer_box bottom)
                 x1, y1, x2, y2 = pointer_box
                 pointer_base_x = (x1 + x2) // 2
-                target_angle = calculate_target_angle((pointer_base_x, y2), target_coords)
+                target_angle = calculate_target_angle(
+                    (pointer_base_x, y2), target_coords
+                )
 
                 print(f"Target angle: {target_angle:.2f}°")
 
@@ -136,10 +146,11 @@ def take_screenshot(stop_event,model):
                     pyautogui.keyUp("left")
         else:
             print("No valid target found, shooting randomly.")
-            #pyautogui.press(" ")
+            # pyautogui.press(" ")
 
-        
 
+# corre o programa criando uma thread com a função take_screenshot
+# também e criado um listener para a tecla 'q' do teclado, para parar o programa quando pressionada
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(script_dir, "best.pt")
@@ -147,16 +158,21 @@ def main():
     stop_event = threading.Event()
 
     screenshot_thread = threading.Thread(
-        target=take_screenshot, args=(stop_event, model,)
+        target=take_screenshot,
+        args=(
+            stop_event,
+            model,
+        ),
     )
     screenshot_thread.start()
-    
-    keyboard.wait('q')
-    
+
+    keyboard.wait("q")
+
     stop_event.set()
-    
+
     screenshot_thread.join()
-    
+
     print("program stopped")
+
 
 main()

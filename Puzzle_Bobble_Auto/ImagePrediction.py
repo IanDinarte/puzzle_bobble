@@ -1,5 +1,6 @@
 import os
 import torch
+from PIL import Image
 from ultralytics import YOLO
 
 target_box = torch.tensor([924.0000, 860.0000, 994.000, 942.000])
@@ -12,7 +13,11 @@ model = YOLO(model_path)  # pretrained YOLOv8n model
 
 image_path = os.path.join(script_dir, "test4.png")
 
-results = model([image_path], conf=0.80, save=True)  # return a list of Results objects
+image = Image.open(image_path)
+
+#image = Image.frombytes("RGB", image.size, image.tobytes())
+
+results = model([image], conf=0.80, save=True)  # return a list of Results objects
 
 class_names = model.names
 
