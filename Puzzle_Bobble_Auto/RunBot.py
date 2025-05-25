@@ -67,7 +67,7 @@ def take_screenshot(stop_event, model):
         screenshot = Image.frombytes("RGB", screenshot.size, screenshot.tobytes())
         print("screenshot took")
 
-        #results based on the screenshot with confidence of 70 percent
+        #return the results detected from the screenshot
         results = model([screenshot], conf=0.70)
 
         shooter_class = None
@@ -87,17 +87,22 @@ def take_screenshot(stop_event, model):
             class_id = int(boxes.cls[i].item())
             class_name = model.names[class_id]
 
+            #check the class of the current bubble to chose target
             if shooter_class is None and point_in_box(cx.item(), cy.item(), target_box):
                 shooter_class = class_name
                 print(f"Shooter bubble: {shooter_class}")
                 continue
 
+            #check if its the pointer
             if pointer_box is None and class_name == "pointer":
                 pointer_box = box.cpu().numpy().astype(int)
                 continue
 
+            #check if its above the threshold, that is, not below the pointer
             if cy.item() > pointer_y_threshold:
                 continue
+            
+            #check if 
             if shooter_class is not None and class_name != shooter_class:
                 continue
 
@@ -108,29 +113,33 @@ def take_screenshot(stop_event, model):
 
         cv_image = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
 
-        if pointer_box is not None:
-            new_pointer_angle = extract_pointer_angle(cv_image, pointer_box)
-            if new_pointer_angle is not None:
-                pointer_angle = new_pointer_angle
-                print(f"Pointer angle: {pointer_angle:.2f}°")
-        else:
-            print("pointer not found, using previous angle")
+        # if pointer_box is not None:
+        #     new_pointer_angle = extract_pointer_angle(cv_image, pointer_box)
+        #     if new_pointer_angle is not None:
+        #         pointer_angle = new_pointer_angle
+        #         print(f"Pointer angle: {pointer_angle:.2f}°")
+        # else:
+        #     print("pointer not found, using previous angle")
 
         if target_coords is not None and pointer_box is not None:
             pointer_data = extract_pointer_angle(cv_image, pointer_box)
+            #if pointer not null, get the angle through the function extract_pointer_angle, uses old angle if pointer not found
             if pointer_data is not None:
                 pointer_angle = pointer_data
                 print(f"Pointer angle: {pointer_angle:.2f}°")
 
-                # Estimate base x position (center of pointer_box bottom)
+                #estimate base x position (center of pointer_box bottom)
                 x1, y1, x2, y2 = pointer_box
                 pointer_base_x = (x1 + x2) // 2
+                
+                #calculate target angle to be able to aim
                 target_angle = calculate_target_angle(
                     (pointer_base_x, y2), target_coords
                 )
 
                 print(f"Target angle: {target_angle:.2f}°")
 
+                #try to align pointer angle with target
                 if abs(pointer_angle - target_angle) < 2:
                     print("Aligned! Shooting...")
                     pyautogui.press(" ")
