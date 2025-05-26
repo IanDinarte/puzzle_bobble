@@ -2,7 +2,6 @@ import pyautogui
 import time
 import os
 
-
 if not os.path.exists("screenshots"):
     os.makedirs("screenshots")
 

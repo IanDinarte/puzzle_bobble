@@ -31,11 +31,13 @@ def main():
 
     print("program stopped")
 
+# get the angle between two points
 def get_angle(p1, p2):
     dx = p2[0] - p1[0]
     dy = p2[1] - p1[1]
     return math.degrees(math.atan2(dy, dx))
 
+# get the class of the object in the target location, if it can't identify any, it will return None
 def get_class_in_location(boxes, model, target_box):
     x1, y1, x2, y2 = target_box
     centers = (boxes.xyxy[:, 0:2] + boxes.xyxy[:, 2:4]) / 2
@@ -51,6 +53,8 @@ def get_class_in_location(boxes, model, target_box):
     else:
         return None
 
+# get the class of tqhe object shooter in the fixed shooter location, that is below the pointer
+# if it can't find any object, it will use the same class as before
 def get_shooter_class(boxes, model, shooter_box):
 
     shooter_class = get_class_in_location(boxes, model, shooter_box)
@@ -62,6 +66,9 @@ def get_shooter_class(boxes, model, shooter_box):
 
     return shooter_class
 
+# will calculate the angle diff and determine the press duration based on the diference
+# angle tolerance will able the pointer to make the decision to shoot even if the angle is not exactly aligned
+# when the bot shoots, it will have a cooldown to prevent double firing
 def aim_shoot(pointer_angle, target_angle):
     ANGLE_TOLERANCE = 6.0
 
@@ -73,12 +80,12 @@ def aim_shoot(pointer_angle, target_angle):
         pyautogui.press(" ")
         target_angle = None
         time.sleep(0.5)
-    elif angle_diff > 0 and pointer_angle <= 160:
+    elif angle_diff > 0 and pointer_angle:
         print(f"Adjusting right...{press_duration}")
         pyautogui.keyDown("right")
         time.sleep(press_duration)
         pyautogui.keyUp("right")
-    elif angle_diff < 0 and pointer_angle >= -160:
+    elif angle_diff < 0 and pointer_angle:
         print(f"Adjusting left...{press_duration}")
         pyautogui.keyDown("left")
         time.sleep(press_duration)
@@ -86,7 +93,7 @@ def aim_shoot(pointer_angle, target_angle):
         
     return target_angle
 
-
+# will take a screenshot every 1 second and get the classes for the shooter and target
 def take_screenshot(stop_event, model):
     if not os.path.exists("screenshots"):
         os.makedirs("screenshots")
@@ -131,11 +138,14 @@ def take_screenshot(stop_event, model):
             class_id = int(boxes.cls[i].item())
             class_name = model.names[class_id]
 
+            # gets the pointer box
             if pointer_box is None and class_name == "pointer":
                 pointer_box = box.cpu().numpy().astype(int)
                 pointer_coords = (cx.item(), cy.item())
                 continue
 
+            # finds the target bubble if the target angle is not already defined and if its of the same class as
+            # the shooter and is above the Y threshold
             if (
                 target_angle is None
                 and cy.item() < Y_THRESHOLD
@@ -149,16 +159,20 @@ def take_screenshot(stop_event, model):
                     print(f"target coords x, y: {target_coords}")
                 continue
 
+        # if there is a target and a pointer box
         if target_coords is not None:
             if pointer_box is not None:
 
+                # calculate the pointer angle based on the pointer base and the pointer box center
                 pointer_angle = get_angle(pointer_center, pointer_coords)
                 print(f"Pointer angle: {pointer_angle:.2f}°")
 
+                # if there isn't already an angle for the target, get the angle for the target between the pointer base as target center
                 if target_angle is None:
                     target_angle = get_angle(pointer_center, target_coords)
 
                 print(f"target angle: {target_angle:.2f}°")
+                # aim and shoot at the target
                 target_angle = aim_shoot(
                     pointer_angle,
                     target_angle,
@@ -168,5 +182,6 @@ def take_screenshot(stop_event, model):
                 print("pointer not found.")
         else:
             print("target not found.")
+        # time between taking screenshots (1 second)
         time.sleep(1)
 main()
