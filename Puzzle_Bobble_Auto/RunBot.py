@@ -4,8 +4,6 @@ import keyboard
 import time
 import os
 import torch
-import cv2
-import numpy as np
 import math
 from PIL import Image
 from ultralytics import YOLO
@@ -154,7 +152,6 @@ def take_screenshot(stop_event, model):
         if target_coords is not None:
             if pointer_box is not None:
 
-                cv_image = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
                 pointer_angle = get_angle(pointer_center, pointer_coords)
                 print(f"Pointer angle: {pointer_angle:.2f}°")
 
